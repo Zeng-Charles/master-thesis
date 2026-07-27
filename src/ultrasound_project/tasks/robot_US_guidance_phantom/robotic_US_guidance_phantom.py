@@ -54,7 +54,8 @@ import cProfile
 import wandb
 import os
 
-from ultrasound_project import CONFIGS_DIR, OUTPUTS_DIR, PATIENTS_DIR
+from ultrasound_project import CONFIGS_DIR, OUTPUTS_DIR
+from ultrasound_project.utils.assets import resolve_patient_lists
 
 scene_cfg = YAML().load(
     open(f"{CONFIGS_DIR}/env/robotic_US_guidance_phantom.yaml", "r")
@@ -127,12 +128,9 @@ INIT_STATE_BED = AssetBaseCfg.InitialStateCfg(
     rot=(0.5, 0.5, 0.5, 0.5),
 )
 scale_bed = bed_cfg["scale"]
-# Phantom bodies live in this repo under assets/patients/<id>/, not in the SonoGym
-# submodule. The three sub-directories mirror SonoGym's selected_dataset_body_from_urdf
-# / selected_dataset_stl / selected_dataset dataset split, flattened per patient.
-human_usd_list = [f"{PATIENTS_DIR}/{p_id}/usd" for p_id in patient_cfg["id_list"]]
-human_stl_list = [f"{PATIENTS_DIR}/{p_id}/stl" for p_id in patient_cfg["id_list"]]
-human_raw_list = [f"{PATIENTS_DIR}/{p_id}/raw" for p_id in patient_cfg["id_list"]]
+human_raw_list, human_stl_list, human_usd_list = resolve_patient_lists(
+    patient_cfg["id_list"]
+)
 
 target_anatomy = patient_cfg["target_anatomy"]
 target_stl_file_list = [

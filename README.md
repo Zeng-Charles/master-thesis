@@ -8,16 +8,39 @@ which tracks [a fork](https://github.com/Zeng-Charles/SonoGym) carrying only a h
 upstream fixes. Everything that is genuinely new — extra tasks, the scripted-scan
 controller, the phantom pipeline, configs and assets — lives here.
 
-## What this repo adds
+## Tasks
 
-| Gym id | Description |
-| --- | --- |
-| `Isaac-robot-US-guidance-cam-v0` | SonoGym's guidance task with a RealSense D435 mounted on the end effector. Behaviour is unchanged; the camera feed is reachable via `env.unwrapped.d435.data.output`. |
-| `Isaac-robot-US-guidance-phantom-v0` | The guidance task against a CT-derived physical lung phantom instead of a patient body, with its own config and assets. |
+Two are defined here, three come from the submodule. All five are registered once you
+`import ultrasound_project` (which imports `spinal_surgery` in turn).
 
-Plus `RasterScanController` (a scripted serpentine surface scan, no RL policy), the
-CT → mask → mesh → USD tooling under `tools/` used to turn a phantom scan into a
-simulation body, and a standalone tester for the pix2pix ultrasound renderer.
+| Gym id | Defined in | Scene config |
+| --- | --- | --- |
+| `Isaac-robot-US-guidance-cam-v0` | this repo | `configs/env/robotic_US_guidance_cam.yaml` |
+| `Isaac-robot-US-guidance-phantom-v0` | this repo | `configs/env/robotic_US_guidance_phantom.yaml` |
+| `Isaac-robot-US-guidance-v0` | submodule | `sonogym-custom/…/robot_US_guidance/cfgs/robotic_US_guidance.yaml` |
+| `Isaac-robot-US-reconstruction-v0` | submodule | `sonogym-custom/…/robot_US_reconstruction/cfgs/…yaml` |
+| `Isaac-robot-US-guided-surgery-v0` | submodule | `sonogym-custom/…/robot_US_guided_surgery/cfgs/…yaml` |
+
+`-cam-v0` is the guidance task with a RealSense D435 on the end effector; behaviour is
+otherwise identical to `-v0` and the camera feed is reachable via
+`env.unwrapped.d435.data.output`. `-phantom-v0` runs the same task against a CT-derived
+physical lung phantom instead of a patient body.
+
+Both are near-verbatim copies of SonoGym's `robotic_US_guidance.py` rather than
+subclasses of it. That task reads its yaml into module-level globals at import time, so a
+subclass would have been permanently tied to the submodule's config — copying is what
+lets these two be retuned entirely from `configs/env/`. The cost is that fixes to the
+shared task body have to be applied in more than one place.
+
+Patient ids in those configs resolve through
+`ultrasound_project.utils.assets.resolve_patient_lists`: bodies added by this repo are
+found under `assets/patients/<id>/`, and anything else falls back to the submodule's
+`HumanModels/selected_dataset*` layout. So `-cam-v0` uses SonoGym's `s0010` while
+`-phantom-v0` uses this repo's `lung_phantom`, from the same code path.
+
+The repo also adds `RasterScanController` (a scripted serpentine surface scan, no RL
+policy), the CT → mask → mesh → USD tooling under `tools/` that turns a phantom scan into
+a simulation body, and a standalone tester for the pix2pix ultrasound renderer.
 
 ## Layout
 
