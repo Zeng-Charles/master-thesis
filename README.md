@@ -50,32 +50,7 @@ git clone --recurse-submodules https://github.com/Zeng-Charles/master-thesis.git
 cd master-thesis
 ```
 
-Then follow [SonoGym's README](sonogym-custom/README.md) for Isaac Sim, Isaac Lab, the
-asset/model downloads and the extension install — everything applies unchanged, just
-under `sonogym-custom/` instead of the repo root:
-
-```bash
-python -m pip install -e sonogym-custom/source/spinal_surgery --no-dependencies
-```
-
-Its asset archives unpack to `sonogym-custom/source/spinal_surgery/spinal_surgery/assets`
-and `sonogym-custom/models`. Both tasks here use `sim.us: 'net'`, so `models/` is
-required, not optional.
-
-Then install this package into the same environment:
-
-```bash
-python -m pip install -e .
-python -m pip install -r requirements-dev.txt   # optional
-```
-
-The expert lerobot dataset (imitation learning only) is SonoGym's too; there is a wrapper
-for it that lands in `data/raw/lerobot-dataset/`:
-
-```bash
-python scripts/download_lerobot_dataset.py          # what the shipped configs use
-python scripts/download_lerobot_dataset.py --all    # all 8 (~34 GB)
-```
+Then follow [SonoGym's README](sonogym-custom/README.md) to setup SonoGym
 
 ### Phantom body
 
