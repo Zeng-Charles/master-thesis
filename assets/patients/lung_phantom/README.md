@@ -1,9 +1,24 @@
 # lung_phantom
 
-Simulation body for `Isaac-robot-US-guidance-phantom-v0`, derived from a CT scan of a
-physical lung phantom. **None of the files below are in git** — three of them exceed
-GitHub's 100 MB per-file limit and this repo does not use Git LFS. Regenerate them with
-the pipeline at the bottom, or copy them from a machine that already has them.
+Simulation body for `Isaac-robot-US-guidance-phantom-v0`. Tracked in Git LFS, so it comes
+with the clone — no download step.
+
+## Source dataset
+
+Derived from **LUNG-PHANTOM** on The Cancer Imaging Archive:
+<https://www.cancerimagingarchive.net/collection/lung-phantom/>
+
+A CT of the FDA anthropomorphic thorax phantom (64-detector GE LightSpeed VCT, 120 kVp /
+100 mAs, 1.25 mm slices, 237 images, one subject), released under CC BY 3.0. The
+collection's 12 synthetic lesions are irrelevant here: only the phantom's outer body
+contour is used, as a surface for the probe to sit against. TCIA's data usage policy
+requires this citation:
+
+> Zhao, B. (2015). *Lung Phantom* (Version 2) [Data set]. The Cancer Imaging Archive.
+> <https://doi.org/10.7937/k9/tcia.2015.08a1ixoo>
+
+The original DICOM series is not in git; it sits in `data/raw/Lung-Phantom/` with a NIfTI
+conversion alongside, and can be re-downloaded from the collection page.
 
 ## Layout
 
@@ -11,6 +26,9 @@ The three sub-directories mirror SonoGym's `selected_dataset_body_from_urdf` /
 `selected_dataset_stl` / `selected_dataset` split, flattened per patient. The file names
 are fixed: `USSlicer`, `SurfaceMotionPlanner` and `VertebraViewer` all build their paths
 by appending these exact names to the directories they are handed.
+
+Every binary below is an LFS object; the `.urdf`, `config.yaml` and this README are
+ordinary git objects.
 
 ```
 raw/

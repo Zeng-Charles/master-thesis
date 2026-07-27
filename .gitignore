@@ -39,16 +39,12 @@ data/**
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
-# Simulation assets: several single files exceed GitHub's 100MB limit and this repo
-# deliberately does not use Git LFS yet. Only the per-patient README stays in git; it
-# documents where each body came from and how to regenerate it with tools/.
-assets/**
-!assets/patients/
-!assets/patients/*/
-!assets/patients/*/README.md
-!assets/robots/
-!assets/probes/
-!assets/scenes/
+# Simulation assets. assets/patients/ is versioned through Git LFS (see .gitattributes)
+# because those bodies are produced by this project. The rest -- bed, robots, probes,
+# ultrasound models -- belongs to SonoGym and is downloaded into the submodule instead.
+assets/robots/*
 !assets/robots/.gitkeep
+assets/probes/*
 !assets/probes/.gitkeep
+assets/scenes/*
 !assets/scenes/.gitkeep

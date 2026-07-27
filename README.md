@@ -1,161 +1,142 @@
 # ultrasound-project
 
-Master-thesis work on robotic ultrasound, built on top of
+Master-thesis work on robotic ultrasound, built on
 [SonoGym](https://github.com/SonoGym/SonoGym) / NVIDIA Isaac Lab.
 
-SonoGym itself is not vendored into this repo: it is the `sonogym-custom/` submodule,
-which tracks [a fork](https://github.com/Zeng-Charles/SonoGym) carrying only a handful of
-upstream fixes. Everything that is genuinely new — extra tasks, the scripted-scan
-controller, the phantom pipeline, configs and assets — lives here.
+SonoGym is not vendored here — it is the `sonogym-custom/` submodule, tracking
+[a fork](https://github.com/Zeng-Charles/SonoGym) that carries only fixes to files which
+already exist upstream. Everything new lives in this repo.
 
 ## Tasks
 
-Two are defined here, three come from the submodule. All five are registered once you
-`import ultrasound_project` (which imports `spinal_surgery` in turn).
+All five register when you `import ultrasound_project`.
 
 | Gym id | Defined in | Scene config |
 | --- | --- | --- |
 | `Isaac-robot-US-guidance-cam-v0` | this repo | `configs/env/robotic_US_guidance_cam.yaml` |
 | `Isaac-robot-US-guidance-phantom-v0` | this repo | `configs/env/robotic_US_guidance_phantom.yaml` |
-| `Isaac-robot-US-guidance-v0` | submodule | `sonogym-custom/…/robot_US_guidance/cfgs/robotic_US_guidance.yaml` |
+| `Isaac-robot-US-guidance-v0` | submodule | `sonogym-custom/…/robot_US_guidance/cfgs/…yaml` |
 | `Isaac-robot-US-reconstruction-v0` | submodule | `sonogym-custom/…/robot_US_reconstruction/cfgs/…yaml` |
 | `Isaac-robot-US-guided-surgery-v0` | submodule | `sonogym-custom/…/robot_US_guided_surgery/cfgs/…yaml` |
 
-`-cam-v0` is the guidance task with a RealSense D435 on the end effector; behaviour is
-otherwise identical to `-v0` and the camera feed is reachable via
-`env.unwrapped.d435.data.output`. `-phantom-v0` runs the same task against a CT-derived
-physical lung phantom instead of a patient body.
+`-cam-v0` is the guidance task plus a RealSense D435 on the end effector, reachable via
+`env.unwrapped.d435.data.output`. `-phantom-v0` is the same task against a CT-derived lung
+phantom. Both are copies of SonoGym's `robotic_US_guidance.py` rather than subclasses,
+because that task reads its yaml into module-level globals at import time — copying is
+what lets them be retuned from `configs/env/` without touching the fork.
 
-Both are near-verbatim copies of SonoGym's `robotic_US_guidance.py` rather than
-subclasses of it. That task reads its yaml into module-level globals at import time, so a
-subclass would have been permanently tied to the submodule's config — copying is what
-lets these two be retuned entirely from `configs/env/`. The cost is that fixes to the
-shared task body have to be applied in more than one place.
-
-Patient ids in those configs resolve through
-`ultrasound_project.utils.assets.resolve_patient_lists`: bodies added by this repo are
-found under `assets/patients/<id>/`, and anything else falls back to the submodule's
-`HumanModels/selected_dataset*` layout. So `-cam-v0` uses SonoGym's `s0010` while
-`-phantom-v0` uses this repo's `lung_phantom`, from the same code path.
-
-The repo also adds `RasterScanController` (a scripted serpentine surface scan, no RL
-policy), the CT → mask → mesh → USD tooling under `tools/` that turns a phantom scan into
-a simulation body, and a standalone tester for the pix2pix ultrasound renderer.
+Also here: `RasterScanController` (scripted serpentine surface scan, no RL policy) and the
+`tools/` pipeline that turns a phantom CT into a simulation body.
 
 ## Layout
 
 ```
-sonogym-custom/          SonoGym fork (git submodule) -- upstream code + minimal fixes
-src/ultrasound_project/  installable package; importing it registers the tasks above
-  tasks/                 gym environments
-  controllers/           scripted controllers (RasterScanController)
-  envs/ sensors/ observations/ rewards/ utils/
-assets/                  simulation bodies, robots, probes, scenes (git-ignored)
+sonogym-custom/          SonoGym fork (submodule)
+src/ultrasound_project/  installable package: tasks/ controllers/ envs/ sensors/
+                         observations/ rewards/ utils/
+assets/patients/         phantom bodies (Git LFS)
 configs/                 env / robot / patient / training configs
-scripts/                 entry points you run
-tools/                   offline data-preparation utilities
+scripts/                 entry points
+tools/                   offline data preparation
+data/  outputs/          datasets and run artefacts (not versioned)
 tests/  slurm/  docs/
-data/                    raw + processed datasets (git-ignored)
-outputs/                 run artefacts (git-ignored)
 ```
-
-Neither `assets/` nor `data/` is versioned: individual files run to hundreds of MB, past
-GitHub's 100 MB per-file limit, and this repo does not use Git LFS. See
-[Getting the assets and data](#getting-the-assets-and-data).
 
 ## Setup
 
 ```bash
+git lfs install
 git clone --recurse-submodules https://github.com/Zeng-Charles/master-thesis.git
 cd master-thesis
-# already cloned without submodules?
-git submodule update --init --recursive
 ```
 
-1. **Isaac Sim + Isaac Lab.** Follow the
-   [Isaac Lab installation guide](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/index.html)
-   and activate its conda environment. Everything below runs inside that environment.
+Then follow [SonoGym's README](sonogym-custom/README.md) for Isaac Sim, Isaac Lab, the
+asset/model downloads and the extension install — everything applies unchanged, just
+under `sonogym-custom/` instead of the repo root:
 
-2. **SonoGym.** Installed from the submodule, without dependencies so it cannot disturb
-   the Isaac Lab environment:
-
-   ```bash
-   python -m pip install -e sonogym-custom/source/spinal_surgery --no-dependencies
-   ```
-
-3. **This package.**
-
-   ```bash
-   python -m pip install -e .
-   python -m pip install -r requirements-dev.txt   # optional, for linting/tests
-   ```
-
-## Getting the assets and data
-
-### SonoGym's own assets and US models
-
-Download from
-<https://huggingface.co/datasets/yunkao/SonoGym_assets_models> and unpack into the
-submodule, exactly as SonoGym's own README describes — the bed, robots, probes and the
-pix2pix checkpoints are resolved relative to the `spinal_surgery` package:
-
-```
-assets -> sonogym-custom/source/spinal_surgery/spinal_surgery/assets
-models -> sonogym-custom/models
+```bash
+python -m pip install -e sonogym-custom/source/spinal_surgery --no-dependencies
 ```
 
-The `sim.us: 'net'` renderer used by the phantom task needs `models/`; without it the
-task fails at startup.
+Its asset archives unpack to `sonogym-custom/source/spinal_surgery/spinal_surgery/assets`
+and `sonogym-custom/models`. Both tasks here use `sim.us: 'net'`, so `models/` is
+required, not optional.
+
+Then install this package into the same environment:
+
+```bash
+python -m pip install -e .
+python -m pip install -r requirements-dev.txt   # optional
+```
+
+The expert lerobot dataset (imitation learning only) is SonoGym's too; there is a wrapper
+for it that lands in `data/raw/lerobot-dataset/`:
+
+```bash
+python scripts/download_lerobot_dataset.py          # what the shipped configs use
+python scripts/download_lerobot_dataset.py --all    # all 8 (~34 GB)
+```
 
 ### Phantom body
 
-`assets/patients/lung_phantom/` — see
-[its README](assets/patients/lung_phantom/README.md) for the exact file list and the
-`tools/` pipeline that regenerates it from the raw CT in `data/raw/`.
+`assets/patients/lung_phantom/` ships with the clone via Git LFS. It is derived from
+**LUNG-PHANTOM** on The Cancer Imaging Archive
+(<https://www.cancerimagingarchive.net/collection/lung-phantom/>), a CT of the FDA
+anthropomorphic thorax phantom, CC BY 3.0. TCIA requires this citation:
 
-### Expert dataset (optional, imitation learning only)
+> Zhao, B. (2015). *Lung Phantom* (Version 2) [Data set]. The Cancer Imaging Archive.
+> <https://doi.org/10.7937/k9/tcia.2015.08a1ixoo>
 
-```bash
-python scripts/download_lerobot_dataset.py            # the two datasets the shipped configs use
-python scripts/download_lerobot_dataset.py --all      # all 8 (~34 GB)
-```
-
-Lands in `data/raw/lerobot-dataset/`. Update `"dataset": {"root": ...}` in
-`configs/training/*.json` to match your absolute path.
+See [its README](assets/patients/lung_phantom/README.md) for the file list and the
+regeneration pipeline.
 
 ## Running
 
 ```bash
-# guidance task with the D435 camera, random actions, live camera viewport
+# guidance + D435, random actions, live camera viewport
 python scripts/run_robot_US_guidance_cam_env.py --num_envs 4
 
-# scripted serpentine surface scan (press SPACE in the viewport to start)
+# scripted serpentine scan -- press SPACE in the viewport to start
 python scripts/scan_trajectory_agent.py --task Isaac-robot-US-guidance-v0 --num_envs 4
 
-# the phantom task, e.g. with SonoGym's own skrl training workflow
+# training etc. use SonoGym's own workflows, from the submodule
 python sonogym-custom/workflows/skrl/train.py --task Isaac-robot-US-guidance-phantom-v0
 ```
 
-Scripts that use SonoGym's workflows (`train.py`, `play.py`, teleoperation, lerobot
-recording) live in the submodule and are called from there. Any of them that needs this
-repo's environments must `import ultrasound_project` — `scripts/` here already does.
+Submodule workflows that need this repo's environments must `import ultrasound_project`;
+the scripts here already do.
 
-Standalone check of the ultrasound renderer, no Isaac Sim required:
+### Inspecting the ultrasound renderer
+
+`tools/test_us_network_standalone.py` runs the pix2pix CT→US network on its own, without
+Isaac Sim, so you can see what it renders before wiring up a simulation. One slice gives a
+PNG; `--sweep` walks the volume and gives an animated GIF (or `.mp4`/`.avi`). Output is
+always CT input on the left, simulated US on the right.
 
 ```bash
-python tools/test_us_network_standalone.py \
-    --ct assets/patients/lung_phantom/raw/ct.nii.gz --slice_index 210 --output us_test.png
+CT=assets/patients/lung_phantom/raw/ct.nii.gz
+
+# single axial slice -> PNG
+python tools/test_us_network_standalone.py --ct $CT --slice_index 210 --output us.png
+
+# every 4th slice -> GIF at 10 fps
+python tools/test_us_network_standalone.py --ct $CT --sweep --slice_step 4 --output us.gif
+
+# a slice range -> mp4
+python tools/test_us_network_standalone.py --ct $CT --sweep \
+    --slice_start 150 --slice_end 300 --fps 15 --output us.mp4
 ```
+
+Useful flags: `--slice_axis {0,1,2}` picks the slicing axis (default 2, axial),
+`--ct_range LOW HIGH` overrides the HU window fed to the network without editing
+`us_generative_cfg.yaml`, and `--device cuda` moves it off the CPU.
 
 ## What goes where
 
-The split is deliberate, to keep the fork close to upstream and mergeable:
-
 - **fork (`sonogym-custom/`)** — only fixes to existing SonoGym files: a batching bug in
-  `HumanFrameViewer` that broke `num_envs == 1`, `torch.load` without `map_location`
-  breaking CPU-only model loading, an import-time side effect in `convert_stl_to_urdf.py`,
-  and two run-time defaults (trajectory recording off, longer teleop episodes).
+  `HumanFrameViewer` breaking `num_envs == 1`, `torch.load` without `map_location`
+  breaking CPU-only loading, an import-time side effect in `convert_stl_to_urdf.py`, and
+  two run-time defaults.
 - **this repo** — every new task, controller, tool, script, config and asset.
 
-New code should default to this repo; touch the fork only when the change is to a file
-that already exists upstream.
+Touch the fork only when the change is to a file that already exists upstream.

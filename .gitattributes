@@ -8,9 +8,7 @@
 *.urdf text
 *.sh   text eol=lf
 
-# Binary simulation/medical data. These are currently git-ignored rather than tracked
-# (see .gitignore) -- the rules below only matter if they are ever added, and keep git
-# from trying to diff or line-ending-normalize them.
+# Binary simulation/medical data: never diffed or line-ending-normalized.
 *.usd  binary
 *.usda binary
 *.usdc binary
@@ -24,3 +22,15 @@
 *.png  binary
 *.jpg  binary
 *.mp4  binary
+
+# Phantom bodies go through Git LFS -- three of them are past GitHub's 100MB per-file
+# limit. Scoped to assets/patients/ so the small text files there (README, urdf, yaml)
+# stay as ordinary git objects, and so binaries elsewhere in the tree are unaffected.
+assets/patients/**/*.usd  filter=lfs diff=lfs merge=lfs -text
+assets/patients/**/*.usda filter=lfs diff=lfs merge=lfs -text
+assets/patients/**/*.usdc filter=lfs diff=lfs merge=lfs -text
+assets/patients/**/*.stl  filter=lfs diff=lfs merge=lfs -text
+assets/patients/**/*.obj  filter=lfs diff=lfs merge=lfs -text
+assets/patients/**/*.nii  filter=lfs diff=lfs merge=lfs -text
+assets/patients/**/*.nii.gz filter=lfs diff=lfs merge=lfs -text
+assets/patients/**/*.pt   filter=lfs diff=lfs merge=lfs -text
