@@ -1,0 +1,26 @@
+* text=auto eol=lf
+
+*.py   text diff=python
+*.md   text
+*.yaml text
+*.yml  text
+*.json text
+*.urdf text
+*.sh   text eol=lf
+
+# Binary simulation/medical data. These are currently git-ignored rather than tracked
+# (see .gitignore) -- the rules below only matter if they are ever added, and keep git
+# from trying to diff or line-ending-normalize them.
+*.usd  binary
+*.usda binary
+*.usdc binary
+*.stl  binary
+*.obj  binary
+*.nii  binary
+*.gz   binary
+*.dcm  binary
+*.pt   binary
+*.pth  binary
+*.png  binary
+*.jpg  binary
+*.mp4  binary

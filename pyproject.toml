@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ultrasound-project"
+version = "0.1.0"
+description = "Master-thesis tasks, tools and assets for robotic ultrasound, built on a SonoGym fork"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "Chaoyu Zeng", email = "zengchaoyu0407@gmail.com" }]
+
+# Isaac Sim / Isaac Lab / spinal_surgery (the SonoGym submodule) are NOT listed here:
+# they are not installable from PyPI and must come from the Isaac Lab conda environment
+# and `pip install -e sonogym-custom/source/spinal_surgery --no-dependencies`.
+# Only the extra pure-Python packages this repo's tools need are declared.
+dependencies = [
+    "nibabel",
+    "numpy",
+    "ruamel.yaml",
+    "scikit-image",
+    "scipy",
+    "trimesh",
+]
+
+[project.optional-dependencies]
+data = ["huggingface_hub"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ultrasound_project = ["py.typed"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+py_version = 310
+known_first_party = ["ultrasound_project"]
+known_third_party = ["isaaclab", "isaaclab_tasks", "isaaclab_assets", "spinal_surgery"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.pyright]
+exclude = ["**/__pycache__", "sonogym-custom", "outputs", "data"]
+typeCheckingMode = "basic"
+pythonVersion = "3.10"
+reportMissingImports = "none"
+reportMissingModuleSource = "none"

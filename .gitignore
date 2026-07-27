@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+build/
+dist/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+.claude/
+
+# Isaac Sim / Omniverse
+*.dmp
+.thumbs/
+_isaac_sim*
+_repo
+_build
+.lastformat
+
+# Run artefacts
+outputs/*
+!outputs/.gitkeep
+wandb/
+runs/
+logs/
+recordings/
+videos/
+*.tmp
+
+# Datasets: downloaded or derived, never versioned. See README for how to obtain them.
+# The directory structure itself is kept via .gitkeep files.
+data/**
+!data/raw/
+!data/processed/
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Simulation assets: several single files exceed GitHub's 100MB limit and this repo
+# deliberately does not use Git LFS yet. Only the per-patient README stays in git; it
+# documents where each body came from and how to regenerate it with tools/.
+assets/**
+!assets/patients/
+!assets/patients/*/
+!assets/patients/*/README.md
+!assets/robots/
+!assets/probes/
+!assets/scenes/
+!assets/robots/.gitkeep
+!assets/probes/.gitkeep
+!assets/scenes/.gitkeep

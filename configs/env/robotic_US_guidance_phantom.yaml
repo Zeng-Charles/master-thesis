@@ -1,0 +1,54 @@
+robot:
+  type: 'kuka'  # 'kuka', fr3
+  pos: [0.0, -0.75, 0.5]
+  joint_pos: [1.5, -0.1, 0.0, -1.6, 0.0, 1.6, 0.0]
+
+patient:
+  pos: [0.2, -0.45, 1.0 ] # was [0.2, -0.45, 1.0] (the real s0010 human's pos) -- corrected to
+  # center the lung_phantom mesh at roughly the same reference point instead of anchoring its
+  # voxel-(0,0,0) corner there (patient.pos places the mesh's local origin, which is a corner,
+  # not its center; the phantom's much smaller/differently-shaped bounding box than a human
+  # body means the same pos/euler_yxz combination places it very differently). Still likely
+  # needs visual fine-tuning (especially Z height above the bed) once you see it rendered.
+  euler_yxz: [-90.0, -90.0, 0.0]
+  id_list: ['lung_phantom']
+  label_res: 0.000703125 # m -- real isotropic voxel spacing after resampling (see tools/resample_isotropic.py)
+  target_anatomy: 'phantom_target' # placeholder mesh, no real anatomical meaning (see tools/make_placeholder_target_traj.py)
+
+bed:
+  pos: [0.0, 0.0, 0.3]
+  euler_xyz: [90, 0.0, 90]
+  scale: 0.001
+
+motion_planning:
+  patient_xz_goal: [256, 210, 3.14] # overwritten each reset by get_US_target_pose() since use_vertebra_goal=True; kept inside the range below just so it's sane on the very first step
+  use_vertebra_goal: True
+  vertebra_to_US_2d_pos: [0.0, 0.0]
+  scale: [[5, 5, 0.1]]
+
+observation:
+  3D: False
+  mode: 'US' # 'seg', 'CT', 'US'
+  scale: 0.02 # 0.02 for datacollection, 0.1 for learning-based
+  scale_net: 0.1
+action:
+  mode: 'continuous' # 'discrete', 'continuous'
+  scale: [2, 2, 0.1] # [0.00002, 0.00002, 0.0001] #
+  max_action: [4, 4, 0.2]
+
+reward:
+  w_pos: 0.03
+
+sim:
+  episode_length: 10 # 5 only for testing
+  patient_xz_range: [[216, 170, 1.0], [296, 250, 3.0]] # an 80x80 voxel box around the placeholder target, verified against the real lung_phantom label map: 0 undefined surface cells, height std 0.4 voxels. Kept smaller than a typical patient's box to keep USSlicer.construct_T_maps()'s tensor allocations modest (~0.94GB) and avoid CUDA OOM.
+  patient_xz_init_range: [[216, 170, 1.5], [296, 250, 3.5]]
+  if_use_ct: True
+  ct_range: [-300, 3000]
+  us: 'net' # 'conv', 'net', 'both' -- 'net' only, since combined_label_map.nii.gz here is a coarse single-label (120) body contour, not a per-organ segmentation, and the 'conv' physics-based renderer needs the latter
+  vis_us: True
+  vis_int: 5
+  vis_seg_map: True
+
+if_record_traj: false
+record_path: /recordings/robot_US_guidance_phantom/
