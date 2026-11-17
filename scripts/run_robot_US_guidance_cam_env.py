@@ -6,7 +6,7 @@
 
 """
 Minimal driver for Isaac-robot-US-guidance-cam-v0: drives the guidance task with random
-actions (same pattern as scripts/run_robot_US_guidance_env.py). By default (GUI mode
+actions (same pattern as sonogym-custom/scripts/run_robot_US_guidance_env.py). By default (GUI mode
 only), this opens a separate Isaac Sim viewport window looking through env 0's D435
 camera at startup -- the original scene viewport is left untouched, so both are visible
 side by side. This uses Isaac Sim's own viewport rendering (omni.kit.viewport.utility)
