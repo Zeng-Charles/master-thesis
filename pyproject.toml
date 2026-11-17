@@ -16,6 +16,9 @@ authors = [{ name = "Chaoyu Zeng", email = "zengchaoyu0407@gmail.com" }]
 # and `pip install -e sonogym-custom/source/spinal_surgery --no-dependencies`.
 # Only the extra pure-Python packages this repo's tools need are declared.
 dependencies = [
+    "imageio",
+    "imageio-ffmpeg",  # mp4 writer for the deformation pipeline's videos
+    "matplotlib",
     "nibabel",
     "numpy",
     "ruamel.yaml",

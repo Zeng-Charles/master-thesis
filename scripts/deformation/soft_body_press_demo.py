@@ -30,13 +30,13 @@ Soft bodies are GPU-only in PhysX, so this needs a CUDA device (the default).
 .. code-block:: bash
 
     # interactive, 20 N probe
-    python deformable_demo/soft_body_press_demo.py
+    python scripts/deformation/soft_body_press_demo.py
 
     # force-displacement sweep, stiffer tissue, no GUI
-    python deformable_demo/soft_body_press_demo.py --headless --force 5 10 20 40 --youngs 3e5
+    python scripts/deformation/soft_body_press_demo.py --headless --force 5 10 20 40 --youngs 3e5
 
     # render the press to PNGs + a GIF instead of watching the viewport
-    python deformable_demo/soft_body_press_demo.py --headless --capture
+    python scripts/deformation/soft_body_press_demo.py --headless --capture
 
 """
 
@@ -120,10 +120,42 @@ parser.add_argument(
 parser.add_argument(
     "--capture_dir",
     type=str,
-    default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "outputs", "deformable_demo"),
+    default=os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "..", "outputs", "soft_body_press"
+    ),
     help="Where --capture writes its frames.",
 )
 parser.add_argument("--capture_every", type=float, default=0.1, help="Seconds of sim time between captured frames.")
+# -- displacement field
+parser.add_argument(
+    "--export_field",
+    action="store_true",
+    default=False,
+    help="Write the FEM displacement field to a .npz at the end of each press, for warping a CT later.",
+)
+parser.add_argument(
+    "--field_dir",
+    type=str,
+    default=os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "..", "outputs", "soft_body_press", "fields"
+    ),
+    help="Where --export_field writes.",
+)
+parser.add_argument("--field_spacing", type=float, default=0.005, help="Displacement grid spacing in m.")
+parser.add_argument(
+    "--field_frame",
+    type=str,
+    default="rest",
+    choices=["rest", "deformed"],
+    help="Index the field by reference position -- the CT's frame -- or by deformed position.",
+)
+parser.add_argument(
+    "--field_reference",
+    type=str,
+    default="settled",
+    choices=["settled", "rest"],
+    help="Zero of the displacement: the body settled under gravity (what a CT of it would show) or the FEM rest shape.",
+)
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
@@ -153,6 +185,8 @@ from isaaclab.sensors import Camera, CameraCfg
 from isaaclab.sim import schemas
 from isaaclab.sim.utils import bind_physics_material, bind_visual_material
 from isaaclab.utils import configclass
+
+from ultrasound_project.deformation.field import build_field, round_trip_error
 
 GRAVITY = 9.81
 # physics step: soft-body contact needs a smaller step than the 1/60 s default
@@ -391,6 +425,55 @@ def surface_node_masks(phantom: DeformableObject, dims: dict) -> tuple[torch.Ten
     return is_top, under_probe
 
 
+def export_field(phantom: DeformableObject, settled_pos: torch.Tensor, target_force: float, indent_mm: float):
+    """Dumps the FEM displacement field of the current state to a .npz.
+
+    This is the handoff to the ultrasound side: the sim nodes are a few thousand scattered
+    points, while warping a CT needs a displacement that can be evaluated anywhere. The
+    grid is in the same metric frame as the nodes, so mapping it to CT voxel indices is a
+    division by the voxel spacing.
+
+    The displacement is measured from the settled body by default, not from the FEM rest
+    shape. A CT is acquired with the patient already lying down, so the settled shape is
+    the one the CT voxels correspond to; referencing the rest shape would fold the body's
+    own gravity sag into a field that is supposed to describe what the probe did.
+    """
+    reference = settled_pos if args_cli.field_reference == "settled" else phantom.data.default_nodal_state_w[0, :, :3]
+    cur_pos = phantom.data.nodal_pos_w[0]
+    field = build_field(
+        reference,
+        cur_pos,
+        spacing=args_cli.field_spacing,
+        keyed_by=args_cli.field_frame,
+        meta={
+            "force_n": target_force,
+            "indentation_mm": indent_mm,
+            "reference": args_cli.field_reference,
+            "youngs_pa": args_cli.youngs,
+            "poissons": args_cli.poissons,
+            "body_size_m": list(args_cli.body_size),
+            "hex_res": args_cli.hex_res,
+            "num_nodes": int(reference.shape[0]),
+        },
+    )
+    mean_err, max_err = round_trip_error(field, reference, cur_pos)
+
+    out_dir = os.path.abspath(args_cli.field_dir)
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, f"field_{target_force:03.0f}N.npz")
+    field.save(path)
+
+    dims = "x".join(str(int(d)) for d in field.dims)
+    peak = torch.linalg.norm(field.u, dim=-1).max().item() * 1e3
+    print(
+        f"[FIELD] {path}\n"
+        f"        grid {dims} @ {field.spacing * 1e3:g} mm, keyed by {field.keyed_by} position,"
+        f" zero at the {args_cli.field_reference} shape\n"
+        f"        |u|max = {peak:.2f} mm (compare the indentation above),"
+        f" round-trip vs nodes: mean {mean_err * 1e3:.3f} mm, max {max_err * 1e3:.3f} mm"
+    )
+
+
 def save_frames(frames: list):
     """Writes the captured frames as PNGs plus an animation of the whole press."""
     if not frames:
@@ -439,6 +522,7 @@ def run_simulator(sim: sim_utils.SimulationContext, entities: dict, dims: dict):
     # taking it after settling rather than from the rest shape keeps the body's own sag
     # under gravity out of the measurement
     baseline_z = None
+    settled_pos = None
     phase_idx = 0
     phase_step = 0
     step_count = 0
@@ -498,6 +582,7 @@ def run_simulator(sim: sim_utils.SimulationContext, entities: dict, dims: dict):
         if baseline_z is None and label == "settle" and phase_step == phase_len:
             baseline_z = surface_z.clone()
             node_baseline_z = phantom.data.nodal_pos_w[0, top_mask, 2].clone()
+            settled_pos = phantom.data.nodal_pos_w[0].clone()
             print(f"[INFO] settled surface at z = {baseline_z.mean().item() * 1e3:.1f} mm (indentation zero)")
         indent = (baseline_z - surface_z).max().item() * 1e3 if baseline_z is not None else 0.0
         if baseline_z is not None and phase_step % int(0.5 / SIM_DT) == 0:
@@ -515,6 +600,8 @@ def run_simulator(sim: sim_utils.SimulationContext, entities: dict, dims: dict):
                     f"[RESULT] {target_force:6.1f} N  ->  {indent:6.2f} mm indentation"
                     f"  (contact stiffness {stiffness:7.0f} N/m)"
                 )
+                if args_cli.export_field:
+                    export_field(phantom, settled_pos, target_force, indent)
             phase_step = 0
             phase_idx += 1
             if phase_idx >= len(schedule):
